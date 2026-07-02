@@ -1,0 +1,100 @@
+# MobLimiter — конфигурация.
+# Применить изменения: /moblimit reload
+
+freeze:
+  enabled: true
+  # Период сканирования скоплений (сек)
+  scan-interval-seconds: 3
+  # Радиус сканирования вокруг игрока (блоки)
+  scan-radius: 48
+  # Радиус подсчёта плотности вокруг моба (скользящее окно — ферму на границе чанков не «размазать»)
+  density-radius: 10
+  # Сколько соседей нужно для заморозки
+  freeze-threshold: 25
+  # При скольких соседях размораживать (гистерезис против мигания)
+  unfreeze-threshold: 18
+  # Кулдаун повторной заморозки после пробуждения (антифликер, сек)
+  refreeze-cooldown-seconds: 5
+  # Кулдаун после урона от окружения (удушение/утопление) — даём мобу выбраться (сек)
+  environment-damage-cooldown-seconds: 10
+  # Жители с профессией замораживаются всегда (торговля работает); сброс профессии — просыпаются
+  freeze-villagers-with-profession: true
+  # Исключения из заморозки по плотности (чтобы не ломать механики игроков)
+  exempt:
+    named: true
+    tamed: true
+    leashed-by-player: true
+    in-vehicle-with-player: true
+    with-equipment: true
+
+limits:
+  enabled: true
+  # Радиус области подсчёта вокруг точки появления (блоки)
+  radius: 32
+  vertical-radius: 16
+  # Кэш подсчёта (сек) — делает штормы спавна дешёвыми
+  cache-seconds: 1.5
+  # Лимиты по категориям (-1 = без лимита)
+  categories:
+    mobs: 60
+    item-frames: 30
+    armor-stands: 20
+    paintings: 20
+    vehicles: 16
+  # Какие причины спавна блокируются при переполнении (CUSTOM/COMMAND не блокируем по умолчанию)
+  blocked-spawn-reasons:
+    - NATURAL
+    - SPAWNER
+    - SPAWNER_EGG
+    - DISPENSE_EGG
+    - EGG
+    - BREEDING
+    - REINFORCEMENTS
+    - RAID
+    - PATROL
+    - DUPLICATION
+
+pets:
+  enabled: true
+  # Общий лимит питомцев на игрока (-1 = без лимита)
+  total-limit: 16
+  # Лимиты по типам
+  per-type:
+    WOLF: 8
+    CAT: 8
+    HORSE: 6
+    PARROT: 4
+
+zones:
+  # Размер ячейки зоны (блоки)
+  cell-size: 64
+  # С какого числа сущностей зона считается перегруженной (жёлтая)
+  overloaded-threshold: 100
+  # Критическая зона (красная) + оповещение админам
+  critical-threshold: 200
+  # Не чаще одного оповещения по зоне (сек)
+  alert-cooldown-seconds: 300
+
+messages:
+  # Антиспам сообщений игроку (сек)
+  cooldown-seconds: 2
+  prefix: "<gray>[<aqua>MobLimiter</aqua>]</gray> "
+  deny-sound: "entity.villager.no"
+  alert-sound: "block.note_block.pling"
+  region-full-mobs: "<red>Здесь уже слишком много мобов (<count>/<limit>) — новые не появятся.</red>"
+  region-full-breeding: "<red>Здесь уже слишком много мобов (<count>/<limit>) — разведение недоступно.</red>"
+  region-full-item-frames: "<red>Здесь слишком много рамок (<count>/<limit>).</red>"
+  region-full-armor-stands: "<red>Здесь слишком много армор-стендов (<count>/<limit>).</red>"
+  region-full-paintings: "<red>Здесь слишком много картин (<count>/<limit>).</red>"
+  region-full-vehicles: "<red>Здесь слишком много транспорта (<count>/<limit>).</red>"
+  pet-limit-type: "<red>Лимит питомцев этого типа: <count>/<limit>. Больше приручить нельзя.</red>"
+  pet-limit-total: "<red>Общий лимит питомцев: <count>/<limit>. Больше приручить нельзя.</red>"
+  zone-critical-alert: "<red>⚠ Критическая зона: <world> [<x>, <z>] — <total> сущностей!</red>"
+  teleported: "<green>Телепортация: <world> [<x>, <z>]</green>"
+  reloaded: "<green>Конфигурация перезагружена.</green>"
+  no-permission: "<red>Недостаточно прав.</red>"
+  players-only: "<red>Только для игроков.</red>"
+  usage: "<gray>Использование: /moblimit [reload|pets|zones]</gray>"
+  info: "<gray>MobLimiter: заморожено мобов — <frozen>, отслеживается зон — <zones>.</gray>"
+  pets-header: "<gray>Ваши питомцы: <total>/<limit></gray>"
+  pets-line: "<gray>  <type>: <count></gray>"

@@ -1,0 +1,19 @@
+name: MobLimiter
+version: '${project.version}'
+main: dev.gteeri.moblimiter.MobLimiterPlugin
+api-version: '1.21'
+folia-supported: true
+description: Freezes mob crowds, enforces per-area entity limits and per-player pet limits.
+authors: [Gteeri]
+commands:
+  moblimit:
+    description: MobLimiter main command
+    usage: /moblimit [reload|pets|zones]
+    permission: moblimit.use
+permissions:
+  moblimit.use:
+    description: Base command access
+    default: true
+  moblimit.admin:
+    description: Admin access (reload, zones GUI, critical zone alerts)
+    default: op
