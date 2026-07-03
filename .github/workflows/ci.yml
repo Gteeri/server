@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -41,12 +45,29 @@ jobs:
           ls -la folia.jar
 
       - name: Integration test on a real Folia server
-        run: bash ci/integration-test.sh
+        run: bash ci/integration-test.sh 2>&1 | tee ci-server/integration.log
 
       - name: Upload server log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: server-log
-          path: ci-server/server.log
+          path: |
+            ci-server/server.log
+            ci-server/integration.log
           if-no-files-found: ignore
+
+      - name: Post failure log to PR
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: $ github.token 
+        run: |
+          LOG=$(tail -c 55000 ci-server/integration.log 2>/dev/null || echo "no log available")
+          {
+            echo "### CI failure log (tail)"
+            echo
+            echo '```'
+            echo "$LOG"
+            echo '```'
+          } > /tmp/pr-comment-body.md
+          gh pr comment "$ github.event.pull_request.number " --repo "$ github.repository " --body-file /tmp/pr-comment-body.md

@@ -3,6 +3,7 @@ package dev.gteeri.moblimiter.freeze;
 import dev.gteeri.moblimiter.MobLimiterPlugin;
 import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
@@ -64,11 +65,23 @@ public final class ClusterScanner {
         if (!player.isValid() || !player.isOnline()) {
             return;
         }
+        scanAt(player.getLocation());
+    }
+
+    /**
+     * Runs one crowd scan/freeze pass around an arbitrary location. Used by the
+     * periodic player-centric scanner, and by the "/moblimit scan" admin
+     * command (an ops/testing utility to exercise this logic without needing a
+     * player physically present, e.g. in headless CI integration tests).
+     * Must run on the region thread that owns the location; callers driving
+     * this off the main/global thread must schedule via the region scheduler.
+     */
+    public void scanAt(Location origin) {
         var cfg = plugin.cfg();
         double radius = cfg.scanRadius;
-        List<Entity> nearby = player.getNearbyEntities(radius, radius, radius);
+        List<Entity> nearby = origin.getWorld().getNearbyEntities(origin, radius, radius, radius);
 
-        plugin.zones().record(player.getWorld(), nearby);
+        plugin.zones().record(origin.getWorld(), nearby);
 
         if (!cfg.freezeEnabled) {
             return;
