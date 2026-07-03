@@ -79,7 +79,8 @@ public final class ClusterScanner {
     public void scanAt(Location origin) {
         var cfg = plugin.cfg();
         double radius = cfg.scanRadius;
-        List<Entity> nearby = origin.getWorld().getNearbyEntities(origin, radius, radius, radius);
+        List<Entity> nearby = new ArrayList<>(
+                origin.getWorld().getNearbyEntities(origin, radius, radius, radius, null));
 
         plugin.zones().record(origin.getWorld(), nearby);
 
