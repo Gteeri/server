@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -41,12 +45,34 @@ jobs:
           ls -la folia.jar
 
       - name: Integration test on a real Folia server
-        run: bash ci/integration-test.sh
+        run: bash ci/integration-test.sh 2>&1 | tee ci-server/integration.log
 
       - name: Upload server log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: server-log
-          path: ci-server/server.log
+          path: |
+            ci-server/server.log
+            ci-server/integration.log
           if-no-files-found: ignore
+
+      - name: Post failure log to PR
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let log = 'no log available';
+            try {
+              log = fs.readFileSync('ci-server/integration.log', 'utf8');
+              if (log.length > 55000) {
+                log = log.slice(-55000);
+              }
+            } catch (e) {}
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '### CI failure log (tail)\n\n```\n' + log + '\n```'
+            });

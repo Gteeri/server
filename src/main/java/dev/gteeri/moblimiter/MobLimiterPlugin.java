@@ -132,4 +132,8 @@ public final class MobLimiterPlugin extends JavaPlugin {
     public MainMenuGui mainMenu() {
         return mainMenuGui;
     }
+
+    public ClusterScanner clusterScanner() {
+        return clusterScanner;
+    }
 }
