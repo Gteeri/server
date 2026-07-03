@@ -99,6 +99,8 @@ public final class ClusterScanner {
                 // so a profession reset wakes them up unless they are in a crowd.
                 if (!frozenNow && !freezer.isOnRefreezeCooldown(mob)) {
                     freezer.freezeLater(mob);
+                } else if (frozenNow) {
+                    freezer.reinforceLater(mob);
                 }
                 continue;
             }
@@ -114,6 +116,8 @@ public final class ClusterScanner {
                 // Hysteresis: wake up only when the crowd clearly thinned out.
                 if (neighbours <= cfg.unfreezeThreshold || freezer.isExemptFromDensityFreeze(mob)) {
                     freezer.unfreezeLater(mob, 0L);
+                } else {
+                    freezer.reinforceLater(mob);
                 }
             }
         }
