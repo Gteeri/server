@@ -24,6 +24,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * Freezing = Mob#setAware(false): goal selector and pathfinding stop ticking
  * (the expensive part), but the mob stays in the world, can be hit, leashed,
  * put in a boat, traded with, etc. State survives restarts via PDC.
+ *
+ * Brain-driven mobs (villagers, piglins, foxes, bees...) can already have a
+ * walk target queued before they get frozen, or Paper's "aware" gate does not
+ * always stop the Brain from re-issuing movement for these mobs. We
+ * defensively cancel the current path on freeze, and re-cancel it on every
+ * scan cycle while the mob stays frozen, so it cannot keep wandering.
  */
 public final class FreezeManager {
 
@@ -133,6 +139,7 @@ public final class FreezeManager {
             return;
         }
         mob.setAware(false);
+        stopNavigation(mob);
         mob.getPersistentDataContainer().set(frozenKey, PersistentDataType.BYTE, (byte) 1);
         if (frozen.add(mob.getUniqueId())) {
             totalFreezes.incrementAndGet();
@@ -154,6 +161,31 @@ public final class FreezeManager {
         }
     }
 
+    /**
+     * Re-applied every scan cycle to mobs that are still frozen. Some
+     * Brain-driven mobs (villagers in particular) can re-issue a walk target
+     * even while unaware; this cancels it before it becomes visible motion.
+     * Must run on the mob's region thread.
+     */
+    public void reinforceNow(Mob mob) {
+        if (!mob.isValid() || !frozen.contains(mob.getUniqueId())) {
+            return;
+        }
+        if (mob.isAware()) {
+            // Something else re-enabled awareness; bring it back in line.
+            mob.setAware(false);
+        }
+        stopNavigation(mob);
+    }
+
+    private void stopNavigation(Mob mob) {
+        try {
+            mob.getPathfinder().stopPathfinding();
+        } catch (UnsupportedOperationException ignored) {
+            // Some mob types (e.g. flying/no-navigation mobs) may not support this; safe to ignore.
+        }
+    }
+
     /** Thread-safe: schedules onto the mob's region thread. */
     public void freezeLater(Mob mob) {
         mob.getScheduler().run(plugin, task -> freezeNow(mob), null);
@@ -162,6 +194,11 @@ public final class FreezeManager {
     /** Thread-safe: schedules onto the mob's region thread. */
     public void unfreezeLater(Mob mob, long refreezeCooldownMillis) {
         mob.getScheduler().run(plugin, task -> unfreezeNow(mob, refreezeCooldownMillis), null);
+    }
+
+    /** Thread-safe: schedules onto the mob's region thread. */
+    public void reinforceLater(Mob mob) {
+        mob.getScheduler().run(plugin, task -> reinforceNow(mob), null);
     }
 
     /** Re-apply persisted frozen state after a chunk load (not a new freeze). */
@@ -176,6 +213,7 @@ public final class FreezeManager {
         mob.getScheduler().run(plugin, task -> {
             if (mob.isValid()) {
                 mob.setAware(false);
+                stopNavigation(mob);
             }
         }, null);
     }
