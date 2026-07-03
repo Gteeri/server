@@ -90,6 +90,9 @@ public final class ZoneRegistry {
             }
         }
         zones.entrySet().removeIf(entry -> now - entry.getValue().timestamp() > STALE_AFTER_MS * 2);
+        // Keep the alert-cooldown map from growing forever.
+        long alertRetentionMs = Math.max(cfg.zoneAlertCooldownSeconds * 1000L, STALE_AFTER_MS) * 2L;
+        lastAlertAt.entrySet().removeIf(entry -> now - entry.getValue() > alertRetentionMs);
     }
 
     /** Overloaded zones, worst first. */

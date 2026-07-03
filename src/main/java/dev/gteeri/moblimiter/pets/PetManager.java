@@ -10,21 +10,28 @@ import org.bukkit.entity.EntityType;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Persistent per-player pet ledger (pets.yml): +1 on tame, -1 only when an
- * owned (PDC-tagged) pet dies. Vanilla has no "release pet" mechanic, so the
- * counter cannot be reset by tricks; the tag survives owner being offline.
+ * Persistent per-player pet ledger (pets.yml).
  *
- * Every mutation immediately schedules an async save (in addition to the
- * periodic fallback save and the on-disable save), so an ungraceful server
- * stop (force-kill, crash, host panel "force stop") loses at most the very
- * last in-flight write instead of up to a minute of tames/deaths.
+ * Tracks the concrete entity UUIDs of tamed pets (owner -> type -> ids), not
+ * bare counters. This makes registration idempotent and lets the ledger
+ * self-heal: every pet also carries a PDC owner tag, and tagged pets are
+ * re-registered whenever their chunk loads, so a lost or outdated pets.yml
+ * rebuilds itself automatically.
+ *
+ * Every mutation immediately schedules an async save (plus the periodic
+ * fallback save and the on-disable save), so an ungraceful server stop loses
+ * at most the very last in-flight write.
  */
 public final class PetManager {
 
@@ -33,7 +40,8 @@ public final class PetManager {
 
     private final MobLimiterPlugin plugin;
     private final NamespacedKey ownerKey;
-    private final Map<UUID, Map<String, Integer>> counts = new ConcurrentHashMap<>();
+    /** owner -> entity type name -> set of pet entity UUIDs. */
+    private final Map<UUID, Map<String, Set<UUID>>> pets = new ConcurrentHashMap<>();
     private final Object ioLock = new Object();
     private volatile boolean dirty;
     private volatile ScheduledTask saveTask;
@@ -83,15 +91,24 @@ public final class PetManager {
             if (section == null) {
                 continue;
             }
-            Map<String, Integer> perType = new ConcurrentHashMap<>();
+            Map<String, Set<UUID>> perType = new ConcurrentHashMap<>();
             for (String type : section.getKeys(false)) {
-                int value = section.getInt(type);
-                if (value > 0) {
-                    perType.put(type.toUpperCase(Locale.ROOT), value);
+                Set<UUID> ids = ConcurrentHashMap.newKeySet();
+                for (String raw : section.getStringList(type)) {
+                    try {
+                        ids.add(UUID.fromString(raw));
+                    } catch (IllegalArgumentException ignored) {
+                    }
+                }
+                // Legacy format stored bare counts; those cannot be mapped to
+                // concrete pets and are skipped. The ledger self-heals from
+                // the PDC tags when the pets' chunks load.
+                if (!ids.isEmpty()) {
+                    perType.put(type.toUpperCase(Locale.ROOT), ids);
                 }
             }
             if (!perType.isEmpty()) {
-                counts.put(owner, perType);
+                pets.put(owner, perType);
             }
         }
     }
@@ -99,10 +116,14 @@ public final class PetManager {
     public void save() {
         synchronized (ioLock) {
             YamlConfiguration yml = new YamlConfiguration();
-            for (Map.Entry<UUID, Map<String, Integer>> entry : counts.entrySet()) {
-                for (Map.Entry<String, Integer> typeEntry : entry.getValue().entrySet()) {
-                    if (typeEntry.getValue() > 0) {
-                        yml.set(entry.getKey() + "." + typeEntry.getKey(), typeEntry.getValue());
+            for (Map.Entry<UUID, Map<String, Set<UUID>>> entry : pets.entrySet()) {
+                for (Map.Entry<String, Set<UUID>> typeEntry : entry.getValue().entrySet()) {
+                    if (!typeEntry.getValue().isEmpty()) {
+                        List<String> ids = new ArrayList<>();
+                        for (UUID id : typeEntry.getValue()) {
+                            ids.add(id.toString());
+                        }
+                        yml.set(entry.getKey() + "." + typeEntry.getKey(), ids);
                     }
                 }
             }
@@ -125,13 +146,13 @@ public final class PetManager {
     }
 
     public int total(UUID owner) {
-        Map<String, Integer> perType = counts.get(owner);
+        Map<String, Set<UUID>> perType = pets.get(owner);
         if (perType == null) {
             return 0;
         }
         int sum = 0;
-        for (int value : perType.values()) {
-            sum += value;
+        for (Set<UUID> ids : perType.values()) {
+            sum += ids.size();
         }
         return sum;
     }
@@ -139,9 +160,9 @@ public final class PetManager {
     /** All pets tracked across every player (for the stats GUI). */
     public int globalTotal() {
         int sum = 0;
-        for (Map<String, Integer> perType : counts.values()) {
-            for (int value : perType.values()) {
-                sum += value;
+        for (Map<String, Set<UUID>> perType : pets.values()) {
+            for (Set<UUID> ids : perType.values()) {
+                sum += ids.size();
             }
         }
         return sum;
@@ -149,20 +170,28 @@ public final class PetManager {
 
     /** Number of players that own at least one tracked pet. */
     public int ownersTracked() {
-        return counts.size();
+        return pets.size();
     }
 
     public int ofType(UUID owner, EntityType type) {
-        Map<String, Integer> perType = counts.get(owner);
+        Map<String, Set<UUID>> perType = pets.get(owner);
         if (perType == null) {
             return 0;
         }
-        return perType.getOrDefault(type.name(), 0);
+        Set<UUID> ids = perType.get(type.name());
+        return ids == null ? 0 : ids.size();
     }
 
     public Map<String, Integer> snapshot(UUID owner) {
-        Map<String, Integer> perType = counts.get(owner);
-        return perType == null ? Map.of() : Map.copyOf(perType);
+        Map<String, Set<UUID>> perType = pets.get(owner);
+        if (perType == null) {
+            return Map.of();
+        }
+        Map<String, Integer> result = new HashMap<>();
+        for (Map.Entry<String, Set<UUID>> entry : perType.entrySet()) {
+            result.put(entry.getKey(), entry.getValue().size());
+        }
+        return Map.copyOf(result);
     }
 
     public TameCheck canTame(UUID owner, EntityType type) {
@@ -183,20 +212,39 @@ public final class PetManager {
         return new TameCheck(true, null, 0, 0);
     }
 
-    public void increment(UUID owner, EntityType type) {
-        counts.computeIfAbsent(owner, o -> new ConcurrentHashMap<>())
-                .merge(type.name(), 1, Integer::sum);
-        dirty = true;
-        saveSoon();
+    /** Idempotent: also used to self-heal from PDC tags on chunk load. */
+    public void register(UUID owner, EntityType type, UUID petId) {
+        Set<UUID> ids = pets.computeIfAbsent(owner, o -> new ConcurrentHashMap<>())
+                .computeIfAbsent(type.name(), t -> ConcurrentHashMap.newKeySet());
+        if (ids.add(petId)) {
+            dirty = true;
+            saveSoon();
+        }
     }
 
-    public void decrement(UUID owner, EntityType type) {
-        Map<String, Integer> perType = counts.get(owner);
+    /** Remove a pet by its entity id (type looked up across the owner's sets). */
+    public void unregister(UUID owner, UUID petId) {
+        Map<String, Set<UUID>> perType = pets.get(owner);
         if (perType == null) {
             return;
         }
-        perType.computeIfPresent(type.name(), (key, value) -> value <= 1 ? null : value - 1);
-        dirty = true;
-        saveSoon();
+        boolean removed = false;
+        var iterator = perType.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, Set<UUID>> entry = iterator.next();
+            if (entry.getValue().remove(petId)) {
+                removed = true;
+            }
+            if (entry.getValue().isEmpty()) {
+                iterator.remove();
+            }
+        }
+        if (perType.isEmpty()) {
+            pets.remove(owner, perType);
+        }
+        if (removed) {
+            dirty = true;
+            saveSoon();
+        }
     }
 }

@@ -108,6 +108,15 @@ public final class ClusterScanner {
                     && mob instanceof Villager villager
                     && !villager.getProfession().equals(Villager.Profession.NONE);
             if (professionVillager) {
+                // Named/tamed/leashed/etc. villagers follow the same exemptions
+                // as every other mob -- a player's name-tagged trading villager
+                // should not be force-frozen.
+                if (freezer.isExemptFromDensityFreeze(mob)) {
+                    if (frozenNow) {
+                        freezer.unfreezeLater(mob, 0L);
+                    }
+                    continue;
+                }
                 // Villagers with a job freeze unconditionally (trading still works).
                 // Villagers without a job fall through to the density logic below,
                 // so a profession reset wakes them up unless they are in a crowd.

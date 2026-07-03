@@ -10,7 +10,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 
@@ -46,14 +45,14 @@ public final class MainMenuGui implements Listener {
         Holder holder = new Holder();
         Inventory inv = Bukkit.createInventory(holder, 27,
                 Component.text("MobLimiter ", GREEN)
-                        .append(Component.text("— ", GREY))
+                        .append(Component.text("\u2014 ", GREY))
                         .append(Component.text("\u0413\u043b\u0430\u0432\u043d\u043e\u0435 \u043c\u0435\u043d\u044e", PURPLE))
                         .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
         holder.inventory = inv;
 
         // --- Stats button
-        inv.setItem(SLOT_STATS, item(Material.COMPARATOR,
-                "\u00a7f\u00a7l\u25b6 \u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u0438 \u0430\u043d\u0430\u043b\u0438\u0437",
+        inv.setItem(SLOT_STATS, itemBold(Material.COMPARATOR,
+                "\u25b6 \u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u0438 \u0430\u043d\u0430\u043b\u0438\u0437",
                 GREEN,
                 List.of(
                         text("\u0417\u0430\u043c\u043e\u0440\u043e\u0437\u043a\u0438, \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u043a\u0438, \u043f\u0438\u0442\u043e\u043c\u0446\u044b", GREY),
@@ -62,18 +61,18 @@ public final class MainMenuGui implements Listener {
                         text("\u25ba \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u0434\u043b\u044f \u043e\u0442\u043a\u0440\u044b\u0442\u0438\u044f", GREEN))));
 
         // --- Config button
-        inv.setItem(SLOT_CONFIG, item(Material.WRITABLE_BOOK,
-                "\u00a7f\u00a7l\u25b6 \u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f",
+        inv.setItem(SLOT_CONFIG, itemBold(Material.WRITABLE_BOOK,
+                "\u25b6 \u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f",
                 PURPLE,
                 List.of(
                         text("\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043b\u0438\u043c\u0438\u0442\u043e\u0432 \u043a\u043b\u0438\u043a\u0430\u043c\u0438", GREY),
-                        text("\u041d\u0430\u0441\u0442\u0440ойка заморозки и питомцев", GREY),
+                        text("\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u0437\u0430\u043c\u043e\u0440\u043e\u0437\u043a\u0438 \u0438 \u043f\u0438\u0442\u043e\u043c\u0446\u0435\u0432", GREY),
                         Component.empty(),
                         text("\u25ba \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u0434\u043b\u044f \u043e\u0442\u043a\u0440\u044b\u0442\u0438\u044f", PURPLE))));
 
         // --- Zones button
-        inv.setItem(SLOT_ZONES, item(Material.BEACON,
-                "\u00a7f\u00a7l\u25b6 \u0413\u043e\u0440\u044f\u0447\u0438\u0435 \u0437\u043e\u043d\u044b",
+        inv.setItem(SLOT_ZONES, itemBold(Material.BEACON,
+                "\u25b6 \u0413\u043e\u0440\u044f\u0447\u0438\u0435 \u0437\u043e\u043d\u044b",
                 YELLOW,
                 List.of(
                         text("\u041f\u0435\u0440\u0435\u0433\u0440\u0443\u0436\u0435\u043d\u043d\u044b\u0435 \u043e\u0431\u043b\u0430\u0441\u0442\u0438 \u0441 \u0442\u0435\u043b\u0435\u043f\u043e\u0440\u0442\u043e\u043c", GREY),
@@ -87,7 +86,7 @@ public final class MainMenuGui implements Listener {
                 GREEN,
                 List.of(
                         text("Folia 1.21.11 \u00b7 \u0410\u0432\u0442\u043e\u0440: Gteeri", GREY),
-                        text("/moblimit reload — \u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430", GREY))));
+                        text("/moblimit reload \u2014 \u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430", GREY))));
 
         fillEmpty(inv);
         player.openInventory(inv);

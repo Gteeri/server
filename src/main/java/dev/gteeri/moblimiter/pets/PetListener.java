@@ -2,6 +2,7 @@ package dev.gteeri.moblimiter.pets;
 
 import dev.gteeri.moblimiter.MobLimiterPlugin;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Tameable;
@@ -10,6 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityTameEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.UUID;
@@ -41,7 +43,7 @@ public final class PetListener implements Listener {
         }
     }
 
-    /** Successful tame: tag the pet with its owner and bump the ledger. */
+    /** Successful tame: tag the pet with its owner and register it in the ledger. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTameSuccess(EntityTameEvent event) {
         if (!(event.getOwner() instanceof Player player)) {
@@ -50,11 +52,15 @@ public final class PetListener implements Listener {
         LivingEntity pet = event.getEntity();
         pet.getPersistentDataContainer().set(plugin.pets().ownerKey(), PersistentDataType.STRING,
                 player.getUniqueId().toString());
-        plugin.pets().increment(player.getUniqueId(), pet.getType());
+        plugin.pets().register(player.getUniqueId(), pet.getType(), pet.getUniqueId());
     }
 
-    /** Pet death: decrement via the PDC tag, works with the owner offline. */
-    @EventHandler(priority = EventPriority.MONITOR)
+    /**
+     * Pet death: remove by entity id, works with the owner offline.
+     * ignoreCancelled so "revive"-style plugins that cancel deaths do not
+     * desync the ledger.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPetDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
         String ownerRaw = entity.getPersistentDataContainer()
@@ -69,8 +75,28 @@ public final class PetListener implements Listener {
             return;
         }
         try {
-            plugin.pets().decrement(UUID.fromString(ownerRaw), entity.getType());
+            plugin.pets().unregister(UUID.fromString(ownerRaw), entity.getUniqueId());
         } catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    /**
+     * Self-healing: re-register tagged pets whenever their chunk loads.
+     * Recovers the ledger automatically after a lost or outdated pets.yml
+     * (registration is idempotent, so repeated loads are harmless).
+     */
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
+            String ownerRaw = entity.getPersistentDataContainer()
+                    .get(plugin.pets().ownerKey(), PersistentDataType.STRING);
+            if (ownerRaw == null) {
+                continue;
+            }
+            try {
+                plugin.pets().register(UUID.fromString(ownerRaw), entity.getType(), entity.getUniqueId());
+            } catch (IllegalArgumentException ignored) {
+            }
         }
     }
 }

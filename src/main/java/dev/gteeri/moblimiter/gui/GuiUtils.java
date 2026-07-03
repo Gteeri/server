@@ -36,12 +36,30 @@ public final class GuiUtils {
         return Component.text(text, color).decoration(TextDecoration.ITALIC, false);
     }
 
+    /** Bold non-italic component with the given color (no legacy codes). */
+    public static Component boldText(String text, TextColor color) {
+        return Component.text(text, color)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, true);
+    }
+
     /** Build a labeled item with a lore list. */
     public static ItemStack item(Material material, String name, TextColor nameColor,
                                   List<Component> lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(text(name, nameColor));
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Build a labeled item with a bold title and a lore list. */
+    public static ItemStack itemBold(Material material, String name, TextColor nameColor,
+                                      List<Component> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(boldText(name, nameColor));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
