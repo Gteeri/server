@@ -59,15 +59,20 @@ jobs:
 
       - name: Post failure log to PR
         if: failure() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: $ github.token 
-        run: |
-          LOG=$(tail -c 55000 ci-server/integration.log 2>/dev/null || echo "no log available")
-          {
-            echo "### CI failure log (tail)"
-            echo
-            echo '```'
-            echo "$LOG"
-            echo '```'
-          } > /tmp/pr-comment-body.md
-          gh pr comment "$ github.event.pull_request.number " --repo "$ github.repository " --body-file /tmp/pr-comment-body.md
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let log = 'no log available';
+            try {
+              log = fs.readFileSync('ci-server/integration.log', 'utf8');
+              if (log.length > 55000) {
+                log = log.slice(-55000);
+              }
+            } catch (e) {}
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '### CI failure log (tail)\n\n```\n' + log + '\n```'
+            });
