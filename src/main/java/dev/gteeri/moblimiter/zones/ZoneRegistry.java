@@ -41,6 +41,21 @@ public final class ZoneRegistry {
         return zones.size();
     }
 
+    /** Fresh entity totals by category across all tracked zones (stats GUI). */
+    public Map<Categories.Category, Integer> freshTotals() {
+        long now = System.currentTimeMillis();
+        EnumMap<Categories.Category, Integer> totals = new EnumMap<>(Categories.Category.class);
+        for (ZoneSample sample : zones.values()) {
+            if (now - sample.timestamp() > STALE_AFTER_MS) {
+                continue;
+            }
+            for (Map.Entry<Categories.Category, Integer> entry : sample.counts().entrySet()) {
+                totals.merge(entry.getKey(), entry.getValue(), Integer::sum);
+            }
+        }
+        return totals;
+    }
+
     /** Called from region threads by the cluster scanner. */
     public void record(World world, List<Entity> entities) {
         var cfg = plugin.cfg();

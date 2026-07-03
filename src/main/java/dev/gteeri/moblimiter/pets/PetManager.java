@@ -122,6 +122,22 @@ public final class PetManager {
         return sum;
     }
 
+    /** All pets tracked across every player (for the stats GUI). */
+    public int globalTotal() {
+        int sum = 0;
+        for (Map<String, Integer> perType : counts.values()) {
+            for (int value : perType.values()) {
+                sum += value;
+            }
+        }
+        return sum;
+    }
+
+    /** Number of players that own at least one tracked pet. */
+    public int ownersTracked() {
+        return counts.size();
+    }
+
     public int ofType(UUID owner, EntityType type) {
         Map<String, Integer> perType = counts.get(owner);
         if (perType == null) {

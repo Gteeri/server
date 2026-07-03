@@ -8,12 +8,12 @@ authors: [Gteeri]
 commands:
   moblimit:
     description: MobLimiter main command
-    usage: /moblimit [reload|pets|zones]
+    usage: /moblimit [gui|reload|pets|zones]
     permission: moblimit.use
 permissions:
   moblimit.use:
     description: Base command access
     default: true
   moblimit.admin:
-    description: Admin access (reload, zones GUI, critical zone alerts)
+    description: Admin access (GUI, reload, zones, critical zone alerts)
     default: op

@@ -5,6 +5,9 @@ import dev.gteeri.moblimiter.config.PluginConfig;
 import dev.gteeri.moblimiter.freeze.ClusterScanner;
 import dev.gteeri.moblimiter.freeze.FreezeListener;
 import dev.gteeri.moblimiter.freeze.FreezeManager;
+import dev.gteeri.moblimiter.gui.ConfigGui;
+import dev.gteeri.moblimiter.gui.MainMenuGui;
+import dev.gteeri.moblimiter.gui.StatsGui;
 import dev.gteeri.moblimiter.limits.LimitListener;
 import dev.gteeri.moblimiter.limits.LimitService;
 import dev.gteeri.moblimiter.pets.PetListener;
@@ -25,6 +28,9 @@ public final class MobLimiterPlugin extends JavaPlugin {
     private PetManager petManager;
     private ZoneRegistry zoneRegistry;
     private ZonesGui zonesGui;
+    private StatsGui statsGui;
+    private ConfigGui configGui;
+    private MainMenuGui mainMenuGui;
 
     @Override
     public void onEnable() {
@@ -36,6 +42,9 @@ public final class MobLimiterPlugin extends JavaPlugin {
         this.petManager = new PetManager(this);
         this.zoneRegistry = new ZoneRegistry(this);
         this.zonesGui = new ZonesGui(this);
+        this.statsGui = new StatsGui(this);
+        this.configGui = new ConfigGui(this);
+        this.mainMenuGui = new MainMenuGui(this);
         this.clusterScanner = new ClusterScanner(this);
 
         var pluginManager = getServer().getPluginManager();
@@ -43,6 +52,9 @@ public final class MobLimiterPlugin extends JavaPlugin {
         pluginManager.registerEvents(new LimitListener(this), this);
         pluginManager.registerEvents(new PetListener(this), this);
         pluginManager.registerEvents(zonesGui, this);
+        pluginManager.registerEvents(statsGui, this);
+        pluginManager.registerEvents(configGui, this);
+        pluginManager.registerEvents(mainMenuGui, this);
 
         PluginCommand command = getCommand("moblimit");
         if (command != null) {
@@ -74,6 +86,13 @@ public final class MobLimiterPlugin extends JavaPlugin {
         this.clusterScanner.restart();
     }
 
+    /** Persist a single config value and apply it live (used by the config GUI). */
+    public void updateConfigValue(String path, Object value) {
+        getConfig().set(path, value);
+        saveConfig();
+        reloadPluginConfig();
+    }
+
     public PluginConfig cfg() {
         return pluginConfig;
     }
@@ -100,5 +119,17 @@ public final class MobLimiterPlugin extends JavaPlugin {
 
     public ZonesGui zonesGui() {
         return zonesGui;
+    }
+
+    public StatsGui statsGui() {
+        return statsGui;
+    }
+
+    public ConfigGui configGui() {
+        return configGui;
+    }
+
+    public MainMenuGui mainMenu() {
+        return mainMenuGui;
     }
 }

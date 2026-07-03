@@ -34,6 +34,16 @@ public final class MobLimitCommand implements TabExecutor {
                         "<green>\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u0430.</green>");
             }
             case "pets" -> pets(sender);
+            case "gui", "menu" -> {
+                if (noAdmin(sender)) {
+                    return true;
+                }
+                if (!(sender instanceof Player player)) {
+                    plugin.msg().send(sender, "players-only", "<red>\u0422\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u0438\u0433\u0440\u043e\u043a\u043e\u0432.</red>");
+                    return true;
+                }
+                plugin.mainMenu().open(player);
+            }
             case "zones" -> {
                 if (noAdmin(sender)) {
                     return true;
@@ -45,7 +55,7 @@ public final class MobLimitCommand implements TabExecutor {
                 plugin.zonesGui().open(player);
             }
             default -> plugin.msg().send(sender, "usage",
-                    "<gray>\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /moblimit [reload|pets|zones]</gray>");
+                    "<gray>\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /moblimit [gui|reload|pets|zones]</gray>");
         }
         return true;
     }
@@ -90,6 +100,7 @@ public final class MobLimitCommand implements TabExecutor {
         }
         List<String> options = new ArrayList<>(List.of("info", "pets"));
         if (sender.hasPermission("moblimit.admin")) {
+            options.add("gui");
             options.add("reload");
             options.add("zones");
         }

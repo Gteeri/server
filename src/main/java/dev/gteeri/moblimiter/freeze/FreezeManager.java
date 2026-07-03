@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Freezing = Mob#setAware(false): goal selector and pathfinding stop ticking
@@ -30,6 +31,8 @@ public final class FreezeManager {
     private final NamespacedKey frozenKey;
     private final Set<UUID> frozen = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Long> refreezeCooldownUntil = new ConcurrentHashMap<>();
+    private final AtomicLong totalFreezes = new AtomicLong();
+    private final AtomicLong totalWakeups = new AtomicLong();
 
     public FreezeManager(MobLimiterPlugin plugin) {
         this.plugin = plugin;
@@ -38,6 +41,14 @@ public final class FreezeManager {
 
     public int frozenCount() {
         return frozen.size();
+    }
+
+    public long totalFreezes() {
+        return totalFreezes.get();
+    }
+
+    public long totalWakeups() {
+        return totalWakeups.get();
     }
 
     public boolean isFrozen(Mob mob) {
@@ -123,7 +134,9 @@ public final class FreezeManager {
         }
         mob.setAware(false);
         mob.getPersistentDataContainer().set(frozenKey, PersistentDataType.BYTE, (byte) 1);
-        frozen.add(mob.getUniqueId());
+        if (frozen.add(mob.getUniqueId())) {
+            totalFreezes.incrementAndGet();
+        }
     }
 
     /** Must run on the mob's region thread. */
@@ -132,7 +145,9 @@ public final class FreezeManager {
             mob.setAware(true);
         }
         mob.getPersistentDataContainer().remove(frozenKey);
-        frozen.remove(mob.getUniqueId());
+        if (frozen.remove(mob.getUniqueId())) {
+            totalWakeups.incrementAndGet();
+        }
         if (refreezeCooldownMillis > 0) {
             refreezeCooldownUntil.put(mob.getUniqueId(),
                     System.currentTimeMillis() + refreezeCooldownMillis);
@@ -149,7 +164,7 @@ public final class FreezeManager {
         mob.getScheduler().run(plugin, task -> unfreezeNow(mob, refreezeCooldownMillis), null);
     }
 
-    /** Re-apply persisted frozen state after a chunk load. */
+    /** Re-apply persisted frozen state after a chunk load (not a new freeze). */
     public void restore(Entity entity) {
         if (!(entity instanceof Mob mob)) {
             return;

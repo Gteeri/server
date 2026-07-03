@@ -4,8 +4,10 @@ import dev.gteeri.moblimiter.MobLimiterPlugin;
 import dev.gteeri.moblimiter.util.Categories;
 import org.bukkit.Location;
 
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Area entity limits with a sliding window: the count is taken within a radius
@@ -27,10 +29,32 @@ public final class LimitService {
 
     private final MobLimiterPlugin plugin;
     private final Map<CacheKey, CacheEntry> cache = new ConcurrentHashMap<>();
+    private final Map<Categories.Category, AtomicLong> blockedByCategory =
+            new EnumMap<>(Categories.Category.class);
+    private final AtomicLong allowedTotal = new AtomicLong();
     private volatile long lastHousekeeping;
 
     public LimitService(MobLimiterPlugin plugin) {
         this.plugin = plugin;
+        for (Categories.Category category : Categories.Category.values()) {
+            blockedByCategory.put(category, new AtomicLong());
+        }
+    }
+
+    public long blockedCount(Categories.Category category) {
+        return blockedByCategory.get(category).get();
+    }
+
+    public long blockedTotal() {
+        long sum = 0;
+        for (AtomicLong value : blockedByCategory.values()) {
+            sum += value.get();
+        }
+        return sum;
+    }
+
+    public long allowedTotal() {
+        return allowedTotal.get();
     }
 
     /**
@@ -46,7 +70,10 @@ public final class LimitService {
         }
         int count = count(location, category);
         boolean over = count >= limit;
-        if (!over) {
+        if (over) {
+            blockedByCategory.get(category).incrementAndGet();
+        } else {
+            allowedTotal.incrementAndGet();
             bump(location, category);
         }
         return new Check(over, count, limit);
