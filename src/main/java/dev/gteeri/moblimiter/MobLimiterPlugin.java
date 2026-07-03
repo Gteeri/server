@@ -18,6 +18,8 @@ import dev.gteeri.moblimiter.zones.ZonesGui;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
+
 public final class MobLimiterPlugin extends JavaPlugin {
 
     private PluginConfig pluginConfig;
@@ -31,6 +33,7 @@ public final class MobLimiterPlugin extends JavaPlugin {
     private StatsGui statsGui;
     private ConfigGui configGui;
     private MainMenuGui mainMenuGui;
+    private volatile List<String> lastSelfTestResult = List.of();
 
     @Override
     public void onEnable() {
@@ -135,5 +138,13 @@ public final class MobLimiterPlugin extends JavaPlugin {
 
     public ClusterScanner clusterScanner() {
         return clusterScanner;
+    }
+
+    public void setLastSelfTestResult(List<String> lines) {
+        this.lastSelfTestResult = List.copyOf(lines);
+    }
+
+    public List<String> lastSelfTestResult() {
+        return lastSelfTestResult;
     }
 }

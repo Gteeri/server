@@ -1,6 +1,7 @@
 package dev.gteeri.moblimiter.command;
 
 import dev.gteeri.moblimiter.MobLimiterPlugin;
+import dev.gteeri.moblimiter.selftest.SelfTest;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -63,6 +64,18 @@ public final class MobLimitCommand implements TabExecutor {
                 }
                 scan(sender, args);
             }
+            case "selftest" -> {
+                if (noAdmin(sender)) {
+                    return true;
+                }
+                selfTest(sender, args);
+            }
+            case "selftest-result" -> {
+                if (noAdmin(sender)) {
+                    return true;
+                }
+                selfTestResult(sender);
+            }
             default -> plugin.msg().send(sender, "usage",
                     "<gray>\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u0435: /moblimit [gui|reload|pets|zones|scan]</gray>");
         }
@@ -103,6 +116,35 @@ public final class MobLimitCommand implements TabExecutor {
     }
 
     /**
+     * Resolves the target location for ops/testing subcommands: explicit
+     * "<world> <x> <y> <z>" args starting at index 1, or the sender's own
+     * location if it's a player and no coordinates were given.
+     */
+    private Location resolveLocation(CommandSender sender, String[] args) {
+        if (args.length >= 5) {
+            World world = Bukkit.getWorld(args[1]);
+            if (world == null) {
+                sender.sendMessage("Unknown world: " + args[1]);
+                return null;
+            }
+            try {
+                double x = Double.parseDouble(args[2]);
+                double y = Double.parseDouble(args[3]);
+                double z = Double.parseDouble(args[4]);
+                return new Location(world, x, y, z);
+            } catch (NumberFormatException e) {
+                sender.sendMessage("Usage: /moblimit " + args[0] + " <world> <x> <y> <z>");
+                return null;
+            }
+        } else if (sender instanceof Player player) {
+            return player.getLocation();
+        } else {
+            sender.sendMessage("Usage: /moblimit " + args[0] + " <world> <x> <y> <z>");
+            return null;
+        }
+    }
+
+    /**
      * Ops/testing utility: manually trigger one crowd scan/freeze pass at a
      * location, without needing a player physically present there. Mainly
      * intended for headless integration tests (the automatic scanner is
@@ -110,31 +152,44 @@ public final class MobLimitCommand implements TabExecutor {
      * Usage: /moblimit scan [world x y z] (defaults to sender's location).
      */
     private void scan(CommandSender sender, String[] args) {
-        Location location;
-        if (args.length >= 5) {
-            World world = Bukkit.getWorld(args[1]);
-            if (world == null) {
-                sender.sendMessage("Unknown world: " + args[1]);
-                return;
-            }
-            try {
-                double x = Double.parseDouble(args[2]);
-                double y = Double.parseDouble(args[3]);
-                double z = Double.parseDouble(args[4]);
-                location = new Location(world, x, y, z);
-            } catch (NumberFormatException e) {
-                sender.sendMessage("Usage: /moblimit scan <world> <x> <y> <z>");
-                return;
-            }
-        } else if (sender instanceof Player player) {
-            location = player.getLocation();
-        } else {
-            sender.sendMessage("Usage: /moblimit scan <world> <x> <y> <z>");
+        Location location = resolveLocation(sender, args);
+        if (location == null) {
             return;
         }
-        Location finalLocation = location;
-        Bukkit.getRegionScheduler().run(plugin, finalLocation, task -> plugin.clusterScanner().scanAt(finalLocation));
+        Bukkit.getRegionScheduler().run(plugin, location, task -> plugin.clusterScanner().scanAt(location));
         sender.sendMessage("Scan triggered.");
+    }
+
+    /**
+     * Ops/testing utility: runs the in-process self-test (LimitService for
+     * all categories, PetManager per-type and total limits) on the region
+     * thread owning the given/derived location, and stores the report for
+     * later retrieval via "/moblimit selftest-result" (the test itself runs
+     * asynchronously relative to this command).
+     * Usage: /moblimit selftest [world x y z] (defaults to sender's location).
+     */
+    private void selfTest(CommandSender sender, String[] args) {
+        Location location = resolveLocation(sender, args);
+        if (location == null) {
+            return;
+        }
+        plugin.setLastSelfTestResult(List.of("PENDING"));
+        Bukkit.getRegionScheduler().run(plugin, location, task -> {
+            List<String> lines = SelfTest.run(plugin, location);
+            plugin.setLastSelfTestResult(lines);
+        });
+        sender.sendMessage("Self-test scheduled. Use /moblimit selftest-result to check.");
+    }
+
+    private void selfTestResult(CommandSender sender) {
+        List<String> last = plugin.lastSelfTestResult();
+        if (last.isEmpty()) {
+            sender.sendMessage("No self-test result yet.");
+            return;
+        }
+        for (String line : last) {
+            sender.sendMessage(line);
+        }
     }
 
     @Override
@@ -148,6 +203,8 @@ public final class MobLimitCommand implements TabExecutor {
             options.add("reload");
             options.add("zones");
             options.add("scan");
+            options.add("selftest");
+            options.add("selftest-result");
         }
         String prefix = args[0].toLowerCase(Locale.ROOT);
         return options.stream().filter(option -> option.startsWith(prefix)).toList();
