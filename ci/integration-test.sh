@@ -61,11 +61,17 @@ fi
 echo '--- command smoke test ---'
 python3 ../ci/rcon.py 'moblimit' 'moblimit reload' 'moblimit pets'
 
-echo '--- functional limit test ---'
+echo '--- functional limit test (mobs, via /summon) ---'
 python3 ../ci/summon_test.py
 
 echo '--- functional villager freeze/wake test ---'
 python3 ../ci/villager_test.py
+
+echo '--- functional freeze exemption test (named mob) ---'
+python3 ../ci/freeze_exempt_test.py
+
+echo '--- full in-process self-test (all limit categories + pet ledger) ---'
+python3 ../ci/selftest_test.py
 
 echo '--- graceful shutdown ---'
 python3 ../ci/rcon.py 'stop' || true
