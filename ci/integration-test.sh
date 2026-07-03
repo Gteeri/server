@@ -64,6 +64,9 @@ python3 ../ci/rcon.py 'moblimit' 'moblimit reload' 'moblimit pets'
 echo '--- functional limit test ---'
 python3 ../ci/summon_test.py
 
+echo '--- functional villager freeze/wake test ---'
+python3 ../ci/villager_test.py
+
 echo '--- graceful shutdown ---'
 python3 ../ci/rcon.py 'stop' || true
 for _ in $(seq 1 24); do
