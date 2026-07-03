@@ -20,6 +20,11 @@ import java.util.concurrent.TimeUnit;
  * Persistent per-player pet ledger (pets.yml): +1 on tame, -1 only when an
  * owned (PDC-tagged) pet dies. Vanilla has no "release pet" mechanic, so the
  * counter cannot be reset by tricks; the tag survives owner being offline.
+ *
+ * Every mutation immediately schedules an async save (in addition to the
+ * periodic fallback save and the on-disable save), so an ungraceful server
+ * stop (force-kill, crash, host panel "force stop") loses at most the very
+ * last in-flight write instead of up to a minute of tames/deaths.
  */
 public final class PetManager {
 
@@ -110,6 +115,15 @@ public final class PetManager {
         }
     }
 
+    /** Fire-and-forget async save, triggered right after every ledger mutation. */
+    private void saveSoon() {
+        try {
+            Bukkit.getAsyncScheduler().runNow(plugin, task -> save());
+        } catch (IllegalStateException e) {
+            // Plugin is disabling/scheduler unavailable; the on-disable save() covers this case.
+        }
+    }
+
     public int total(UUID owner) {
         Map<String, Integer> perType = counts.get(owner);
         if (perType == null) {
@@ -173,6 +187,7 @@ public final class PetManager {
         counts.computeIfAbsent(owner, o -> new ConcurrentHashMap<>())
                 .merge(type.name(), 1, Integer::sum);
         dirty = true;
+        saveSoon();
     }
 
     public void decrement(UUID owner, EntityType type) {
@@ -182,5 +197,6 @@ public final class PetManager {
         }
         perType.computeIfPresent(type.name(), (key, value) -> value <= 1 ? null : value - 1);
         dirty = true;
+        saveSoon();
     }
 }
