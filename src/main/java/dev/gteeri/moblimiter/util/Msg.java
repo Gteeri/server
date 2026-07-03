@@ -8,13 +8,16 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** MiniMessage-based messaging with anti-spam cooldown and sounds. */
-public final class Msg {
+public final class Msg implements Listener {
 
     private static final MiniMessage MINI = MiniMessage.miniMessage();
 
@@ -53,5 +56,11 @@ public final class Msg {
         } catch (Exception ignored) {
             // invalid sound key in config -- ignore
         }
+    }
+
+    /** Prevent the per-player cooldown map from growing forever. */
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        lastDeny.remove(event.getPlayer().getUniqueId());
     }
 }

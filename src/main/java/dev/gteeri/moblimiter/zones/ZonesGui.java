@@ -105,6 +105,28 @@ public final class ZonesGui implements Listener {
         };
     }
 
+    /**
+     * Find a safe standing spot at/above the sample point: two passable blocks
+     * with solid ground, scanning upward; falls back to the surface. Must run
+     * on the region thread owning the location.
+     */
+    private static Location findSafeSpot(Location target) {
+        World world = target.getWorld();
+        int x = target.getBlockX();
+        int z = target.getBlockZ();
+        int start = Math.max(world.getMinHeight() + 1, target.getBlockY());
+        int max = Math.min(world.getMaxHeight() - 2, start + 32);
+        for (int y = start; y <= max; y++) {
+            if (world.getBlockAt(x, y, z).isPassable()
+                    && world.getBlockAt(x, y + 1, z).isPassable()
+                    && !world.getBlockAt(x, y - 1, z).isPassable()) {
+                return new Location(world, x + 0.5, y, z + 0.5);
+            }
+        }
+        int top = world.getHighestBlockYAt(x, z) + 1;
+        return new Location(world, x + 0.5, top, z + 0.5);
+    }
+
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (!(event.getInventory().getHolder() instanceof Holder holder)) {
@@ -127,9 +149,13 @@ public final class ZonesGui implements Listener {
         if (world == null) {
             return;
         }
-        Location target = new Location(world, zone.x(), zone.y() + 1.0, zone.z());
+        Location target = new Location(world, zone.x(), zone.y(), zone.z());
         player.closeInventory();
-        player.teleportAsync(target);
+        // Compute a safe spot on the region owning the target, then teleport.
+        Bukkit.getRegionScheduler().run(plugin, target, task -> {
+            Location safe = findSafeSpot(target);
+            player.getScheduler().run(plugin, t -> player.teleportAsync(safe), null);
+        });
         plugin.msg().send(player, "teleported",
                 "<green>\u0422\u0435\u043b\u0435\u043f\u043e\u0440\u0442\u0430\u0446\u0438\u044f: <world> [<x>, <z>]</green>",
                 Placeholder.unparsed("world", zone.key().world()),

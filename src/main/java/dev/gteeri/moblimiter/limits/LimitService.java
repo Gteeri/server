@@ -63,6 +63,20 @@ public final class LimitService {
      * already are). When allowed, cached counts are bumped immediately.
      */
     public Check check(Location location, Categories.Category category) {
+        return check(location, category, true);
+    }
+
+    /**
+     * Same as {@link #check(Location, Categories.Category)} but does not touch
+     * the allowed/blocked statistics counters shown in the stats GUI. Used by
+     * the self-test so test runs do not pollute real gameplay stats. Cache
+     * bumps still happen (the self-test relies on them).
+     */
+    public Check checkQuiet(Location location, Categories.Category category) {
+        return check(location, category, false);
+    }
+
+    private Check check(Location location, Categories.Category category, boolean recordStats) {
         var cfg = plugin.cfg();
         Integer limit = cfg.categoryLimits.get(category);
         if (!cfg.limitsEnabled || limit == null || limit < 0) {
@@ -71,9 +85,13 @@ public final class LimitService {
         int count = count(location, category);
         boolean over = count >= limit;
         if (over) {
-            blockedByCategory.get(category).incrementAndGet();
+            if (recordStats) {
+                blockedByCategory.get(category).incrementAndGet();
+            }
         } else {
-            allowedTotal.incrementAndGet();
+            if (recordStats) {
+                allowedTotal.incrementAndGet();
+            }
             bump(location, category);
         }
         return new Check(over, count, limit);

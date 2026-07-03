@@ -22,7 +22,12 @@ import java.util.List;
 
 public final class MobLimiterPlugin extends JavaPlugin {
 
-    private PluginConfig pluginConfig;
+    /**
+     * Volatile: replaced on /moblimit reload while Folia region threads read it
+     * concurrently. Without volatile, other threads could keep seeing a stale
+     * config indefinitely per the Java Memory Model.
+     */
+    private volatile PluginConfig pluginConfig;
     private Msg msg;
     private FreezeManager freezeManager;
     private ClusterScanner clusterScanner;
@@ -51,6 +56,7 @@ public final class MobLimiterPlugin extends JavaPlugin {
         this.clusterScanner = new ClusterScanner(this);
 
         var pluginManager = getServer().getPluginManager();
+        pluginManager.registerEvents(msg, this);
         pluginManager.registerEvents(new FreezeListener(this), this);
         pluginManager.registerEvents(new LimitListener(this), this);
         pluginManager.registerEvents(new PetListener(this), this);

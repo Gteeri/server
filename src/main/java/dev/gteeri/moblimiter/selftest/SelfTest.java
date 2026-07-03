@@ -20,8 +20,9 @@ import java.util.UUID;
  * player placements (armor stands, item frames, taming) is not possible over
  * RCON.
  *
- * Must be invoked on the region thread owning the given location (the
- * command wiring schedules this correctly).
+ * Uses checkQuiet so runs do not pollute the gameplay statistics shown in the
+ * stats GUI. Must be invoked on the region thread owning the given location
+ * (the command wiring schedules this correctly).
  */
 public final class SelfTest {
 
@@ -56,7 +57,7 @@ public final class SelfTest {
             return;
         }
         for (int i = 0; i < limit; i++) {
-            LimitService.Check check = service.check(location, category);
+            LimitService.Check check = service.checkQuiet(location, category);
             if (check.overLimit()) {
                 lines.add("FAIL limit:" + category.key() + " blocked too early at i=" + i
                         + " (limit=" + limit + ")");
@@ -68,7 +69,7 @@ public final class SelfTest {
                 return;
             }
         }
-        LimitService.Check overflow = service.check(location, category);
+        LimitService.Check overflow = service.checkQuiet(location, category);
         if (!overflow.overLimit()) {
             lines.add("FAIL limit:" + category.key() + " did not block at the configured limit (" + limit + ")");
             return;
@@ -91,6 +92,7 @@ public final class SelfTest {
         EntityType type = cfg.petTypeLimits.keySet().iterator().next();
         int limit = cfg.petTypeLimits.get(type);
         UUID owner = UUID.randomUUID();
+        List<UUID> petIds = new ArrayList<>();
         boolean ok = true;
         for (int i = 0; i < limit; i++) {
             PetManager.TameCheck check = pets.canTame(owner, type);
@@ -99,7 +101,9 @@ public final class SelfTest {
                 ok = false;
                 break;
             }
-            pets.increment(owner, type);
+            UUID petId = UUID.randomUUID();
+            pets.register(owner, type, petId);
+            petIds.add(petId);
         }
         if (ok) {
             PetManager.TameCheck overflow = pets.canTame(owner, type);
@@ -108,8 +112,8 @@ public final class SelfTest {
                 ok = false;
             }
         }
-        for (int i = 0; i < limit; i++) {
-            pets.decrement(owner, type);
+        for (UUID petId : petIds) {
+            pets.unregister(owner, petId);
         }
         if (pets.total(owner) != 0) {
             lines.add("FAIL pets:" + type + " ledger did not clean up to zero");
@@ -136,6 +140,7 @@ public final class SelfTest {
             return;
         }
         UUID owner = UUID.randomUUID();
+        List<UUID> petIds = new ArrayList<>();
         boolean ok = true;
         for (int i = 0; i < cfg.petTotalLimit; i++) {
             PetManager.TameCheck check = pets.canTame(owner, type);
@@ -144,7 +149,9 @@ public final class SelfTest {
                 ok = false;
                 break;
             }
-            pets.increment(owner, type);
+            UUID petId = UUID.randomUUID();
+            pets.register(owner, type, petId);
+            petIds.add(petId);
         }
         if (ok) {
             PetManager.TameCheck overflow = pets.canTame(owner, type);
@@ -153,8 +160,8 @@ public final class SelfTest {
                 ok = false;
             }
         }
-        for (int i = 0; i < cfg.petTotalLimit; i++) {
-            pets.decrement(owner, type);
+        for (UUID petId : petIds) {
+            pets.unregister(owner, petId);
         }
         if (pets.total(owner) != 0) {
             lines.add("FAIL pets:total-limit ledger did not clean up to zero");

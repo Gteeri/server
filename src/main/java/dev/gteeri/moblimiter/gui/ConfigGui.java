@@ -188,6 +188,11 @@ public final class ConfigGui implements Listener {
             return;
         }
         int slot = event.getRawSlot();
+        // Clicks in the player's own inventory (below the panel) are just
+        // cancelled and ignored -- no config reload, no GUI reopen.
+        if (slot < 0 || slot >= event.getInventory().getSize()) {
+            return;
+        }
         if (slot == S_BACK) {
             plugin.mainMenu().open(player);
             return;
@@ -201,6 +206,7 @@ public final class ConfigGui implements Listener {
         }
         int d = increase ? delta : -delta;
         var cfg = plugin.cfg();
+        boolean changed = true;
         switch (slot) {
             case S_FREEZE_ON -> toggle("freeze.enabled", !cfg.freezeEnabled);
             case S_FREEZE_THR -> setInt("freeze.freeze-threshold",
@@ -235,10 +241,12 @@ public final class ConfigGui implements Listener {
                     Math.max(8, (int) cfg.scanRadius + d));
             case S_DENSITY_RAD -> setInt("freeze.density-radius",
                     Math.max(2, (int) cfg.densityRadius + d));
-            default -> { /* filler */ }
+            default -> changed = false; // filler click -- no reload, no reopen
         }
-        // Reopen to show updated values
-        plugin.configGui().open(player);
+        if (changed) {
+            // Reopen to show updated values
+            plugin.configGui().open(player);
+        }
     }
 
     private void toggle(String path, boolean value) {
